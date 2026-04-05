@@ -7,7 +7,7 @@ library(dplyr)
 library(geosphere)
 library(DT)
 
-# 2. ДАННЫЕ (замените на ваш путь)
+# 2. ДАННЫЕ
 route_counts <- read.csv("route_counts.csv")
 
 # 3. UI
