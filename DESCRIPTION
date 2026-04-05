@@ -1,0 +1,13 @@
+Package: postcardmap
+Title: Postcards Migration Map
+Version: 0.0.1
+Description: Interactive map showing postcard migration between countries
+Imports:
+    shiny,
+    shinyWidgets,
+    leaflet,
+    leaflet.extras,
+    dplyr,
+    geosphere,
+    DT
+Encoding: UTF-8
