@@ -1,0 +1,13 @@
+Package: postcard-map
+Title: Карта миграции почтовых открыток
+Version: 0.0.1
+Description: Интерактивная карта для визуализации обмена открытками между странами
+Imports: 
+    shiny,
+    shinyWidgets,
+    leaflet,
+    leaflet.extras,
+    dplyr,
+    geosphere,
+    DT
+Encoding: UTF-8
