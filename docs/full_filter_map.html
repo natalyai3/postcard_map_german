@@ -1,0 +1,3251 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Карта почтовых открыток</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        * { margin: 0; padding: 0; }
+        body { font-family: Arial, sans-serif; }
+        #map { height: 100vh; width: 100%; }
+        .controls {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            background: rgba(255,255,255,0.95);
+            padding: 15px;
+            border-radius: 8px;
+            z-index: 1000;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 15px rgba(0,0,0,0.2);
+        }
+        .control-group { background: white; padding: 8px 12px; border-radius: 5px; border: 1px solid #ddd; }
+        select { padding: 5px; border-radius: 5px; cursor: pointer; }
+        button { background: #764ba2; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; }
+        .stats { background: #667eea; color: white; padding: 8px 15px; border-radius: 5px; }
+        .range-slider { width: 260px; display: flex; gap: 10px; align-items: center; }
+        input { width: 100px; }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <div class="controls">
+        <div class="control-group">
+            <label>📅 от:</label>
+            <input type="number" id="minYear" min="1800" max="2024" value="1890" step="10" style="width:70px">
+            <label>до:</label>
+            <input type="number" id="maxYear" min="1800" max="2024" value="2020" step="10" style="width:70px">
+        </div>
+        <div class="control-group">
+            <label>📍 Откуда:</label>
+            <select id="countryFrom"><option value="all">Все страны</option></select>
+        </div>
+        <div class="control-group">
+            <label>📍 Куда:</label>
+            <select id="countryTo"><option value="all">Все страны</option></select>
+        </div>
+        <div class="control-group">
+            <button id="toggleMarkers">Скрыть маркеры</button>
+        </div>
+        <div class="stats">📬 <span id="postcardCount">0</span> открыток</div>
+        <button id="resetBtn">Сбросить всё</button>
+    </div>
+
+    <script>
+        const routesData = [
+  {
+    "decade": 10,
+    "country_from": "Польша",
+    "country_to": "Швейцария",
+    "count": 1,
+    "lon_from": 19.4197,
+    "lat_from": 52.1118,
+    "lon_to": 8.2063,
+    "lat_to": 46.7989
+  },
+  {
+    "decade": 160,
+    "country_from": "Германия",
+    "country_to": "Германия",
+    "count": 1,
+    "lon_from": 10.3644,
+    "lat_from": 51.0506,
+    "lon_to": 10.3644,
+    "lat_to": 51.0506
+  },
+  {
+    "decade": 170,
+    "country_from": "Германия",
+    "country_to": "Германия",
+    "count": 1,
+    "lon_from": 10.3644,
+    "lat_from": 51.0506,
+    "lon_to": 10.3644,
+    "lat_to": 51.0506
+  },
+  {
+    "decade": 220,
+    "country_from": "Россия",
+    "country_to": "Швейцария",
+    "count": 1,
+    "lon_from": 95.6414,
+    "lat_from": 66.0317,
+    "lon_to": 8.2063,
+    "lat_to": 46.7989
+  },
+  {
+    "decade": 470,
+    "country_from": "Россия",
+    "country_to": "Германия",
+    "count": 1,
+    "lon_from": 95.6414,
+    "lat_from": 66.0317,
+    "lon_to": 10.3644,
+    "lat_to": 51.0506
+  },
+  {
+    "decade": 550,
+    "country_from": "Россия",
+    "country_to": "Германия",
+    "count": 5,
+    "lon_from": 95.6414,
+    "lat_from": 66.0317,
+    "lon_to": 10.3644,
+    "lat_to": 51.0506
+  },
+  {
+    "decade": 920,
+    "country_from": "Швейцария",
+    "country_to": "Россия",
+    "count": 1,
+    "lon_from": 8.2063,
+    "lat_from": 46.7989,
+    "lon_to": 95.6414,
+    "lat_to": 66.0317
+  },
+  {
+    "decade": 980,
+    "country_from": "Россия",
+    "country_to": "Германия",
+    "count": 1,
+    "lon_from": 95.6414,
+    "lat_from": 66.0317,
+    "lon_to": 10.3644,
+    "lat_to": 51.0506
+  },
+  {
+    "decade": 1010,
+    "country_from": "Швейцария",
+    "country_to": "Россия",
+    "count": 1,
+    "lon_from": 8.2063,
+    "lat_from": 46.7989,
+    "lon_to": 95.6414,
+    "lat_to": 66.0317
+  },
+  {
+    "decade": 1220,
+    "country_from": "Россия",
+    "country_to": "Бельгия",
+    "count": 1,
+    "lon_from": 95.6414,
+    "lat_from": 66.0317,
+    "lon_to": 4.6459,
+    "lat_to": 50.6389
+  },
+  {
+    "decade": 1320,
+    "country_from": "Россия",
+    "country_to": "Швейцария",
+    "count": 2,
+    "lon_from": 95.6414,
+    "lat_from": 66.0317,
+    "lon_to": 8.2063,
+    "lat_to": 46.7989
+  },
+  {
+    "decade": 1860,
+    "country_from": "Россия",
+    "country_to": "Швейцария",
+    "count": 1,
+    "lon_from": 95.6414,
+    "lat_from": 66.0317,
+    "lon_to": 8.2063,
+    "lat_to": 46.7989
+  },
+  {
+    "decade": 1890,
+    "country_from": "Австрия",
+    "country_to": "Россия",
+    "count": 1,
+    "lon_from": 14.1104,
+    "lat_from": 47.5923,
+    "lon_to": 95.6414,
+    "lat_to": 66.0317
+  },
+  {
+    "decade": 1890,
+    "country_from": "Германия",
+    "country_to": "Германия",
+    "count": 2,
+    "lon_from": 10.3644,
+    "lat_from": 51.0506,
+    "lon_to": 10.3644,
+    "lat_to": 51.0506
+  },
+  {
+    "decade": 1890,
+    "country_from": "Германия",
+    "country_to": "Россия",
+    "count": 3,
+    "lon_from": 10.3644,
+    "lat_from": 51.0506,
+    "lon_to": 95.6414,
+    "lat_to": 66.0317
+  },
+  {
+    "decade": 1890,
+    "country_from": "Россия",
+    "country_to": "Австрия",
+    "count": 1,
+    "lon_from": 95.6414,
+    "lat_from": 66.0317,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1890,
+    "country_from": "Россия",
+    "country_to": "Бельгия",
+    "count": 1,
+    "lon_from": 95.6414,
+    "lat_from": 66.0317,
+    "lon_to": 4.6459,
+    "lat_to": 50.6389
+  },
+  {
+    "decade": 1890,
+    "country_from": "Россия",
+    "country_to": "Германия",
+    "count": 1,
+    "lon_from": 95.6414,
+    "lat_from": 66.0317,
+    "lon_to": 10.3644,
+    "lat_to": 51.0506
+  },
+  {
+    "decade": 1900,
+    "country_from": "Австрия",
+    "country_to": "Россия",
+    "count": 10,
+    "lon_from": 14.1104,
+    "lat_from": 47.5923,
+    "lon_to": 95.6414,
+    "lat_to": 66.0317
+  },
+  {
+    "decade": 1900,
+    "country_from": "Бельгия",
+    "country_to": "Россия",
+    "count": 1,
+    "lon_from": 4.6459,
+    "lat_from": 50.6389,
+    "lon_to": 95.6414,
+    "lat_to": 66.0317
+  },
+  {
+    "decade": 1900,
+    "country_from": "Бельгия",
+    "country_to": "США",
+    "count": 1,
+    "lon_from": 4.6459,
+    "lat_from": 50.6389,
+    "lon_to": -103.6296,
+    "lat_to": 44.7437
+  },
+  {
+    "decade": 1900,
+    "country_from": "Бельгия",
+    "country_to": "Франция",
+    "count": 1,
+    "lon_from": 4.6459,
+    "lat_from": 50.6389,
+    "lon_to": 1.75,
+    "lat_to": 47.5
+  },
+  {
+    "decade": 1900,
+    "country_from": "Германия",
+    "country_to": "Германия",
+    "count": 37,
+    "lon_from": 10.3644,
+    "lat_from": 51.0506,
+    "lon_to": 10.3644,
+    "lat_to": 51.0506
+  },
+  {
+    "decade": 1900,
+    "country_from": "Германия",
+    "country_to": "Россия",
+    "count": 47,
+    "lon_from": 10.3644,
+    "lat_from": 51.0506,
+    "lon_to": 95.6414,
+    "lat_to": 66.0317
+  },
+  {
+    "decade": 1900,
+    "country_from": "Германия",
+    "country_to": "Франция",
+    "count": 2,
+    "lon_from": 10.3644,
+    "lat_from": 51.0506,
+    "lon_to": 1.75,
+    "lat_to": 47.5
+  },
+  {
+    "decade": 1900,
+    "country_from": "Нидерланды",
+    "country_to": "Германия",
+    "count": 1,
+    "lon_from": 4.9915,
+    "lat_from": 52.2269,
+    "lon_to": 10.3644,
+    "lat_to": 51.0506
+  },
+  {
+    "decade": 1900,
+    "country_from": "Россия",
+    "country_to": "Австрия",
+    "count": 6,
+    "lon_from": 95.6414,
+    "lat_from": 66.0317,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1900,
+    "country_from": "Россия",
+    "country_to": "Бельгия",
+    "count": 9,
+    "lon_from": 95.6414,
+    "lat_from": 66.0317,
+    "lon_to": 4.6459,
+    "lat_to": 50.6389
+  },
+  {
+    "decade": 1900,
+    "country_from": "Россия",
+    "country_to": "Германия",
+    "count": 38,
+    "lon_from": 95.6414,
+    "lat_from": 66.0317,
+    "lon_to": 10.3644,
+    "lat_to": 51.0506
+  },
+  {
+    "decade": 1900,
+    "country_from": "Россия",
+    "country_to": "Италия",
+    "count": 1,
+    "lon_from": 95.6414,
+    "lat_from": 66.0317,
+    "lon_to": 12.201,
+    "lat_to": 42.7157
+  },
+  {
+    "decade": 1900,
+    "country_from": "Россия",
+    "country_to": "Россия",
+    "count": 2,
+    "lon_from": 95.6414,
+    "lat_from": 66.0317,
+    "lon_to": 95.6414,
+    "lat_to": 66.0317
+  },
+  {
+    "decade": 1900,
+    "country_from": "Россия",
+    "country_to": "Швейцария",
+    "count": 14,
+    "lon_from": 95.6414,
+    "lat_from": 66.0317,
+    "lon_to": 8.2063,
+    "lat_to": 46.7989
+  },
+  {
+    "decade": 1900,
+    "country_from": "США",
+    "country_to": "Германия",
+    "count": 1,
+    "lon_from": -103.6296,
+    "lat_from": 44.7437,
+    "lon_to": 10.3644,
+    "lat_to": 51.0506
+  },
+  {
+    "decade": 1900,
+    "country_from": "Франция",
+    "country_to": "Германия",
+    "count": 1,
+    "lon_from": 1.75,
+    "lat_from": 47.5,
+    "lon_to": 10.3644,
+    "lat_to": 51.0506
+  },
+  {
+    "decade": 1900,
+    "country_from": "Франция",
+    "country_to": "Франция",
+    "count": 1,
+    "lon_from": 1.75,
+    "lat_from": 47.5,
+    "lon_to": 1.75,
+    "lat_to": 47.5
+  },
+  {
+    "decade": 1900,
+    "country_from": "Франция",
+    "country_to": "Чехия",
+    "count": 1,
+    "lon_from": 1.75,
+    "lat_from": 47.5,
+    "lon_to": 15.3194,
+    "lat_to": 49.738
+  },
+  {
+    "decade": 1900,
+    "country_from": "Франция",
+    "country_to": "Швейцария",
+    "count": 1,
+    "lon_from": 1.75,
+    "lat_from": 47.5,
+    "lon_to": 8.2063,
+    "lat_to": 46.7989
+  },
+  {
+    "decade": 1900,
+    "country_from": "Чехия",
+    "country_to": "Германия",
+    "count": 1,
+    "lon_from": 15.3194,
+    "lat_from": 49.738,
+    "lon_to": 10.3644,
+    "lat_to": 51.0506
+  },
+  {
+    "decade": 1900,
+    "country_from": "Швейцария",
+    "country_to": "Германия",
+    "count": 8,
+    "lon_from": 8.2063,
+    "lat_from": 46.7989,
+    "lon_to": 10.3644,
+    "lat_to": 51.0506
+  },
+  {
+    "decade": 1900,
+    "country_from": "Швейцария",
+    "country_to": "Италия",
+    "count": 1,
+    "lon_from": 8.2063,
+    "lat_from": 46.7989,
+    "lon_to": 12.201,
+    "lat_to": 42.7157
+  },
+  {
+    "decade": 1900,
+    "country_from": "Швейцария",
+    "country_to": "Россия",
+    "count": 29,
+    "lon_from": 8.2063,
+    "lat_from": 46.7989,
+    "lon_to": 95.6414,
+    "lat_to": 66.0317
+  },
+  {
+    "decade": 1900,
+    "country_from": "Швейцария",
+    "country_to": "Швейцария",
+    "count": 6,
+    "lon_from": 8.2063,
+    "lat_from": 46.7989,
+    "lon_to": 8.2063,
+    "lat_to": 46.7989
+  },
+  {
+    "decade": 1910,
+    "country_from": "Австрия",
+    "country_to": "Австрия",
+    "count": 3,
+    "lon_from": 14.1104,
+    "lat_from": 47.5923,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1910,
+    "country_from": "Австрия",
+    "country_to": "Италия",
+    "count": 1,
+    "lon_from": 14.1104,
+    "lat_from": 47.5923,
+    "lon_to": 12.201,
+    "lat_to": 42.7157
+  },
+  {
+    "decade": 1910,
+    "country_from": "Австрия",
+    "country_to": "Россия",
+    "count": 12,
+    "lon_from": 14.1104,
+    "lat_from": 47.5923,
+    "lon_to": 95.6414,
+    "lat_to": 66.0317
+  },
+  {
+    "decade": 1910,
+    "country_from": "Австрия",
+    "country_to": "Финляндия",
+    "count": 1,
+    "lon_from": 14.1104,
+    "lat_from": 47.5923,
+    "lon_to": 26.195,
+    "lat_to": 64.2551
+  },
+  {
+    "decade": 1910,
+    "country_from": "Австрия",
+    "country_to": "Черногория",
+    "count": 1,
+    "lon_from": 14.1104,
+    "lat_from": 47.5923,
+    "lon_to": 19.2386,
+    "lat_to": 42.788
+  },
+  {
+    "decade": 1910,
+    "country_from": "Бельгия",
+    "country_to": "Бельгия",
+    "count": 1,
+    "lon_from": 4.6459,
+    "lat_from": 50.6389,
+    "lon_to": 4.6459,
+    "lat_to": 50.6389
+  },
+  {
+    "decade": 1910,
+    "country_from": "Бельгия",
+    "country_to": "Россия",
+    "count": 3,
+    "lon_from": 4.6459,
+    "lat_from": 50.6389,
+    "lon_to": 95.6414,
+    "lat_to": 66.0317
+  },
+  {
+    "decade": 1910,
+    "country_from": "Германия",
+    "country_to": "Германия",
+    "count": 17,
+    "lon_from": 10.3644,
+    "lat_from": 51.0506,
+    "lon_to": 10.3644,
+    "lat_to": 51.0506
+  },
+  {
+    "decade": 1910,
+    "country_from": "Германия",
+    "country_to": "Россия",
+    "count": 60,
+    "lon_from": 10.3644,
+    "lat_from": 51.0506,
+    "lon_to": 95.6414,
+    "lat_to": 66.0317
+  },
+  {
+    "decade": 1910,
+    "country_from": "Германия",
+    "country_to": "Франция",
+    "count": 2,
+    "lon_from": 10.3644,
+    "lat_from": 51.0506,
+    "lon_to": 1.75,
+    "lat_to": 47.5
+  },
+  {
+    "decade": 1910,
+    "country_from": "Германия",
+    "country_to": "Швейцария",
+    "count": 2,
+    "lon_from": 10.3644,
+    "lat_from": 51.0506,
+    "lon_to": 8.2063,
+    "lat_to": 46.7989
+  },
+  {
+    "decade": 1910,
+    "country_from": "Россия",
+    "country_to": "Австрия",
+    "count": 6,
+    "lon_from": 95.6414,
+    "lat_from": 66.0317,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1910,
+    "country_from": "Россия",
+    "country_to": "Бельгия",
+    "count": 1,
+    "lon_from": 95.6414,
+    "lat_from": 66.0317,
+    "lon_to": 4.6459,
+    "lat_to": 50.6389
+  },
+  {
+    "decade": 1910,
+    "country_from": "Россия",
+    "country_to": "Германия",
+    "count": 18,
+    "lon_from": 95.6414,
+    "lat_from": 66.0317,
+    "lon_to": 10.3644,
+    "lat_to": 51.0506
+  },
+  {
+    "decade": 1910,
+    "country_from": "Россия",
+    "country_to": "Россия",
+    "count": 4,
+    "lon_from": 95.6414,
+    "lat_from": 66.0317,
+    "lon_to": 95.6414,
+    "lat_to": 66.0317
+  },
+  {
+    "decade": 1910,
+    "country_from": "Россия",
+    "country_to": "Франция",
+    "count": 1,
+    "lon_from": 95.6414,
+    "lat_from": 66.0317,
+    "lon_to": 1.75,
+    "lat_to": 47.5
+  },
+  {
+    "decade": 1910,
+    "country_from": "Россия",
+    "country_to": "Швейцария",
+    "count": 14,
+    "lon_from": 95.6414,
+    "lat_from": 66.0317,
+    "lon_to": 8.2063,
+    "lat_to": 46.7989
+  },
+  {
+    "decade": 1910,
+    "country_from": "США",
+    "country_to": "США",
+    "count": 1,
+    "lon_from": -103.6296,
+    "lat_from": 44.7437,
+    "lon_to": -103.6296,
+    "lat_to": 44.7437
+  },
+  {
+    "decade": 1910,
+    "country_from": "Франция",
+    "country_to": "Австрия",
+    "count": 1,
+    "lon_from": 1.75,
+    "lat_from": 47.5,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1910,
+    "country_from": "Франция",
+    "country_to": "Германия",
+    "count": 1,
+    "lon_from": 1.75,
+    "lat_from": 47.5,
+    "lon_to": 10.3644,
+    "lat_to": 51.0506
+  },
+  {
+    "decade": 1910,
+    "country_from": "Швейцария",
+    "country_to": "Германия",
+    "count": 1,
+    "lon_from": 8.2063,
+    "lat_from": 46.7989,
+    "lon_to": 10.3644,
+    "lat_to": 51.0506
+  },
+  {
+    "decade": 1910,
+    "country_from": "Швейцария",
+    "country_to": "Россия",
+    "count": 15,
+    "lon_from": 8.2063,
+    "lat_from": 46.7989,
+    "lon_to": 95.6414,
+    "lat_to": 66.0317
+  },
+  {
+    "decade": 1910,
+    "country_from": "Швейцария",
+    "country_to": "Швейцария",
+    "count": 3,
+    "lon_from": 8.2063,
+    "lat_from": 46.7989,
+    "lon_to": 8.2063,
+    "lat_to": 46.7989
+  },
+  {
+    "decade": 1920,
+    "country_from": "Австрия",
+    "country_to": "Австрия",
+    "count": 1,
+    "lon_from": 14.1104,
+    "lat_from": 47.5923,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1920,
+    "country_from": "Венгрия",
+    "country_to": "Румыния",
+    "count": 1,
+    "lon_from": 19.3793,
+    "lat_from": 47.1659,
+    "lon_to": 24.9832,
+    "lat_to": 45.8484
+  },
+  {
+    "decade": 1920,
+    "country_from": "Германия",
+    "country_to": "Австрия",
+    "count": 1,
+    "lon_from": 10.3644,
+    "lat_from": 51.0506,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1920,
+    "country_from": "Германия",
+    "country_to": "Германия",
+    "count": 3,
+    "lon_from": 10.3644,
+    "lat_from": 51.0506,
+    "lon_to": 10.3644,
+    "lat_to": 51.0506
+  },
+  {
+    "decade": 1920,
+    "country_from": "Германия",
+    "country_to": "Россия",
+    "count": 15,
+    "lon_from": 10.3644,
+    "lat_from": 51.0506,
+    "lon_to": 95.6414,
+    "lat_to": 66.0317
+  },
+  {
+    "decade": 1920,
+    "country_from": "Россия",
+    "country_to": "Германия",
+    "count": 1,
+    "lon_from": 95.6414,
+    "lat_from": 66.0317,
+    "lon_to": 10.3644,
+    "lat_to": 51.0506
+  },
+  {
+    "decade": 1920,
+    "country_from": "Словения",
+    "country_to": "Австрия",
+    "count": 1,
+    "lon_from": 14.8005,
+    "lat_from": 46.1159,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1920,
+    "country_from": "Франция",
+    "country_to": "Бельгия",
+    "count": 2,
+    "lon_from": 1.75,
+    "lat_from": 47.5,
+    "lon_to": 4.6459,
+    "lat_to": 50.6389
+  },
+  {
+    "decade": 1920,
+    "country_from": "Франция",
+    "country_to": "Великобритания",
+    "count": 1,
+    "lon_from": 1.75,
+    "lat_from": 47.5,
+    "lon_to": -2.7581,
+    "lat_to": 54.0116
+  },
+  {
+    "decade": 1920,
+    "country_from": "Швейцария",
+    "country_to": "Германия",
+    "count": 2,
+    "lon_from": 8.2063,
+    "lat_from": 46.7989,
+    "lon_to": 10.3644,
+    "lat_to": 51.0506
+  },
+  {
+    "decade": 1920,
+    "country_from": "Швейцария",
+    "country_to": "Швейцария",
+    "count": 4,
+    "lon_from": 8.2063,
+    "lat_from": 46.7989,
+    "lon_to": 8.2063,
+    "lat_to": 46.7989
+  },
+  {
+    "decade": 1930,
+    "country_from": "Австрия",
+    "country_to": "Германия",
+    "count": 1,
+    "lon_from": 14.1104,
+    "lat_from": 47.5923,
+    "lon_to": 10.3644,
+    "lat_to": 51.0506
+  },
+  {
+    "decade": 1930,
+    "country_from": "Германия",
+    "country_to": "Австрия",
+    "count": 4,
+    "lon_from": 10.3644,
+    "lat_from": 51.0506,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1930,
+    "country_from": "Германия",
+    "country_to": "Россия",
+    "count": 11,
+    "lon_from": 10.3644,
+    "lat_from": 51.0506,
+    "lon_to": 95.6414,
+    "lat_to": 66.0317
+  },
+  {
+    "decade": 1930,
+    "country_from": "Германия",
+    "country_to": "Румыния",
+    "count": 1,
+    "lon_from": 10.3644,
+    "lat_from": 51.0506,
+    "lon_to": 24.9832,
+    "lat_to": 45.8484
+  },
+  {
+    "decade": 1930,
+    "country_from": "Германия",
+    "country_to": "Финляндия",
+    "count": 1,
+    "lon_from": 10.3644,
+    "lat_from": 51.0506,
+    "lon_to": 26.195,
+    "lat_to": 64.2551
+  },
+  {
+    "decade": 1930,
+    "country_from": "Германия",
+    "country_to": "Франция",
+    "count": 1,
+    "lon_from": 10.3644,
+    "lat_from": 51.0506,
+    "lon_to": 1.75,
+    "lat_to": 47.5
+  },
+  {
+    "decade": 1930,
+    "country_from": "Италия",
+    "country_to": "Австрия",
+    "count": 1,
+    "lon_from": 12.201,
+    "lat_from": 42.7157,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1930,
+    "country_from": "Италия",
+    "country_to": "Чехия",
+    "count": 1,
+    "lon_from": 12.201,
+    "lat_from": 42.7157,
+    "lon_to": 15.3194,
+    "lat_to": 49.738
+  },
+  {
+    "decade": 1930,
+    "country_from": "Россия",
+    "country_to": "Австрия",
+    "count": 4,
+    "lon_from": 95.6414,
+    "lat_from": 66.0317,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1930,
+    "country_from": "Россия",
+    "country_to": "Германия",
+    "count": 2,
+    "lon_from": 95.6414,
+    "lat_from": 66.0317,
+    "lon_to": 10.3644,
+    "lat_to": 51.0506
+  },
+  {
+    "decade": 1930,
+    "country_from": "Сербия",
+    "country_to": "Швейцария",
+    "count": 1,
+    "lon_from": 20.8066,
+    "lat_from": 44.2113,
+    "lon_to": 8.2063,
+    "lat_to": 46.7989
+  },
+  {
+    "decade": 1930,
+    "country_from": "Чехия",
+    "country_to": "Австрия",
+    "count": 1,
+    "lon_from": 15.3194,
+    "lat_from": 49.738,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1930,
+    "country_from": "Швейцария",
+    "country_to": "Австрия",
+    "count": 2,
+    "lon_from": 8.2063,
+    "lat_from": 46.7989,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1930,
+    "country_from": "Швейцария",
+    "country_to": "Россия",
+    "count": 1,
+    "lon_from": 8.2063,
+    "lat_from": 46.7989,
+    "lon_to": 95.6414,
+    "lat_to": 66.0317
+  },
+  {
+    "decade": 1930,
+    "country_from": "Швейцария",
+    "country_to": "Франция",
+    "count": 1,
+    "lon_from": 8.2063,
+    "lat_from": 46.7989,
+    "lon_to": 1.75,
+    "lat_to": 47.5
+  },
+  {
+    "decade": 1940,
+    "country_from": "Австрия",
+    "country_to": "Австрия",
+    "count": 2,
+    "lon_from": 14.1104,
+    "lat_from": 47.5923,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1940,
+    "country_from": "Австрия",
+    "country_to": "Германия",
+    "count": 1,
+    "lon_from": 14.1104,
+    "lat_from": 47.5923,
+    "lon_to": 10.3644,
+    "lat_to": 51.0506
+  },
+  {
+    "decade": 1940,
+    "country_from": "Германия",
+    "country_to": "Австрия",
+    "count": 2,
+    "lon_from": 10.3644,
+    "lat_from": 51.0506,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1940,
+    "country_from": "Германия",
+    "country_to": "Германия",
+    "count": 5,
+    "lon_from": 10.3644,
+    "lat_from": 51.0506,
+    "lon_to": 10.3644,
+    "lat_to": 51.0506
+  },
+  {
+    "decade": 1940,
+    "country_from": "Германия",
+    "country_to": "Россия",
+    "count": 11,
+    "lon_from": 10.3644,
+    "lat_from": 51.0506,
+    "lon_to": 95.6414,
+    "lat_to": 66.0317
+  },
+  {
+    "decade": 1940,
+    "country_from": "Франция",
+    "country_to": "Германия",
+    "count": 1,
+    "lon_from": 1.75,
+    "lat_from": 47.5,
+    "lon_to": 10.3644,
+    "lat_to": 51.0506
+  },
+  {
+    "decade": 1940,
+    "country_from": "Чехия",
+    "country_to": "Германия",
+    "count": 2,
+    "lon_from": 15.3194,
+    "lat_from": 49.738,
+    "lon_to": 10.3644,
+    "lat_to": 51.0506
+  },
+  {
+    "decade": 1940,
+    "country_from": "Швейцария",
+    "country_to": "Швейцария",
+    "count": 2,
+    "lon_from": 8.2063,
+    "lat_from": 46.7989,
+    "lon_to": 8.2063,
+    "lat_to": 46.7989
+  },
+  {
+    "decade": 1950,
+    "country_from": "Австрия",
+    "country_to": "Австрия",
+    "count": 3,
+    "lon_from": 14.1104,
+    "lat_from": 47.5923,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1950,
+    "country_from": "Германия",
+    "country_to": "Австрия",
+    "count": 2,
+    "lon_from": 10.3644,
+    "lat_from": 51.0506,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1950,
+    "country_from": "Германия",
+    "country_to": "Германия",
+    "count": 5,
+    "lon_from": 10.3644,
+    "lat_from": 51.0506,
+    "lon_to": 10.3644,
+    "lat_to": 51.0506
+  },
+  {
+    "decade": 1950,
+    "country_from": "Германия",
+    "country_to": "Россия",
+    "count": 2,
+    "lon_from": 10.3644,
+    "lat_from": 51.0506,
+    "lon_to": 95.6414,
+    "lat_to": 66.0317
+  },
+  {
+    "decade": 1950,
+    "country_from": "Германия",
+    "country_to": "США",
+    "count": 1,
+    "lon_from": 10.3644,
+    "lat_from": 51.0506,
+    "lon_to": -103.6296,
+    "lat_to": 44.7437
+  },
+  {
+    "decade": 1950,
+    "country_from": "Италия",
+    "country_to": "Австрия",
+    "count": 3,
+    "lon_from": 12.201,
+    "lat_from": 42.7157,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1950,
+    "country_from": "Канада",
+    "country_to": "Австрия",
+    "count": 1,
+    "lon_from": -96.5486,
+    "lat_from": 60.4178,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1950,
+    "country_from": "Люксембург",
+    "country_to": "Австрия",
+    "count": 1,
+    "lon_from": 6.0722,
+    "lat_from": 49.7668,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1950,
+    "country_from": "Россия",
+    "country_to": "Германия",
+    "count": 1,
+    "lon_from": 95.6414,
+    "lat_from": 66.0317,
+    "lon_to": 10.3644,
+    "lat_to": 51.0506
+  },
+  {
+    "decade": 1950,
+    "country_from": "Сербия",
+    "country_to": "Австрия",
+    "count": 2,
+    "lon_from": 20.8066,
+    "lat_from": 44.2113,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1950,
+    "country_from": "Чехия",
+    "country_to": "Австрия",
+    "count": 1,
+    "lon_from": 15.3194,
+    "lat_from": 49.738,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1950,
+    "country_from": "Швейцария",
+    "country_to": "Австрия",
+    "count": 3,
+    "lon_from": 8.2063,
+    "lat_from": 46.7989,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1950,
+    "country_from": "Швейцария",
+    "country_to": "Бельгия",
+    "count": 1,
+    "lon_from": 8.2063,
+    "lat_from": 46.7989,
+    "lon_to": 4.6459,
+    "lat_to": 50.6389
+  },
+  {
+    "decade": 1960,
+    "country_from": "Австрия",
+    "country_to": "Австрия",
+    "count": 13,
+    "lon_from": 14.1104,
+    "lat_from": 47.5923,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1960,
+    "country_from": "Австрия",
+    "country_to": "Иран",
+    "count": 1,
+    "lon_from": 14.1104,
+    "lat_from": 47.5923,
+    "lon_to": 54.4409,
+    "lat_to": 32.5273
+  },
+  {
+    "decade": 1960,
+    "country_from": "Бразилия",
+    "country_to": "Австрия",
+    "count": 1,
+    "lon_from": -53.2157,
+    "lat_from": -10.639,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1960,
+    "country_from": "Великобритания",
+    "country_to": "Австрия",
+    "count": 1,
+    "lon_from": -2.7581,
+    "lat_from": 54.0116,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1960,
+    "country_from": "Германия",
+    "country_to": "Австрия",
+    "count": 12,
+    "lon_from": 10.3644,
+    "lat_from": 51.0506,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1960,
+    "country_from": "Германия",
+    "country_to": "Германия",
+    "count": 5,
+    "lon_from": 10.3644,
+    "lat_from": 51.0506,
+    "lon_to": 10.3644,
+    "lat_to": 51.0506
+  },
+  {
+    "decade": 1960,
+    "country_from": "Германия",
+    "country_to": "Нидерланды",
+    "count": 1,
+    "lon_from": 10.3644,
+    "lat_from": 51.0506,
+    "lon_to": 4.9915,
+    "lat_to": 52.2269
+  },
+  {
+    "decade": 1960,
+    "country_from": "Германия",
+    "country_to": "Россия",
+    "count": 5,
+    "lon_from": 10.3644,
+    "lat_from": 51.0506,
+    "lon_to": 95.6414,
+    "lat_to": 66.0317
+  },
+  {
+    "decade": 1960,
+    "country_from": "Германия",
+    "country_to": "Сербия",
+    "count": 2,
+    "lon_from": 10.3644,
+    "lat_from": 51.0506,
+    "lon_to": 20.8066,
+    "lat_to": 44.2113
+  },
+  {
+    "decade": 1960,
+    "country_from": "Греция",
+    "country_to": "Австрия",
+    "count": 2,
+    "lon_from": 22.9643,
+    "lat_from": 39.048,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1960,
+    "country_from": "Дания",
+    "country_to": "Австрия",
+    "count": 1,
+    "lon_from": 10.0422,
+    "lat_from": 55.975,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1960,
+    "country_from": "Испания",
+    "country_to": "Австрия",
+    "count": 1,
+    "lon_from": -3.7035,
+    "lat_from": 40.2077,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1960,
+    "country_from": "Италия",
+    "country_to": "Австрия",
+    "count": 19,
+    "lon_from": 12.201,
+    "lat_from": 42.7157,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1960,
+    "country_from": "Италия",
+    "country_to": "Германия",
+    "count": 1,
+    "lon_from": 12.201,
+    "lat_from": 42.7157,
+    "lon_to": 10.3644,
+    "lat_to": 51.0506
+  },
+  {
+    "decade": 1960,
+    "country_from": "Мьянма",
+    "country_to": "Австрия",
+    "count": 1,
+    "lon_from": 96.4948,
+    "lat_from": 21.1129,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1960,
+    "country_from": "Норвегия",
+    "country_to": "Австрия",
+    "count": 2,
+    "lon_from": 12.7459,
+    "lat_from": 66.3603,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1960,
+    "country_from": "Польша",
+    "country_to": "Австрия",
+    "count": 1,
+    "lon_from": 19.4197,
+    "lat_from": 52.1118,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1960,
+    "country_from": "Россия",
+    "country_to": "Австрия",
+    "count": 1,
+    "lon_from": 95.6414,
+    "lat_from": 66.0317,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1960,
+    "country_from": "Россия",
+    "country_to": "Германия",
+    "count": 1,
+    "lon_from": 95.6414,
+    "lat_from": 66.0317,
+    "lon_to": 10.3644,
+    "lat_to": 51.0506
+  },
+  {
+    "decade": 1960,
+    "country_from": "США",
+    "country_to": "Австрия",
+    "count": 1,
+    "lon_from": -103.6296,
+    "lat_from": 44.7437,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1960,
+    "country_from": "Сербия",
+    "country_to": "Австрия",
+    "count": 7,
+    "lon_from": 20.8066,
+    "lat_from": 44.2113,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1960,
+    "country_from": "Турция",
+    "country_to": "Австрия",
+    "count": 1,
+    "lon_from": 35.1728,
+    "lat_from": 39.137,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1960,
+    "country_from": "Франция",
+    "country_to": "Австрия",
+    "count": 2,
+    "lon_from": 1.75,
+    "lat_from": 47.5,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1960,
+    "country_from": "Чехия",
+    "country_to": "Австрия",
+    "count": 2,
+    "lon_from": 15.3194,
+    "lat_from": 49.738,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1960,
+    "country_from": "Чехия",
+    "country_to": "Германия",
+    "count": 2,
+    "lon_from": 15.3194,
+    "lat_from": 49.738,
+    "lon_to": 10.3644,
+    "lat_to": 51.0506
+  },
+  {
+    "decade": 1960,
+    "country_from": "Швейцария",
+    "country_to": "Австрия",
+    "count": 4,
+    "lon_from": 8.2063,
+    "lat_from": 46.7989,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1960,
+    "country_from": "Швейцария",
+    "country_to": "Германия",
+    "count": 1,
+    "lon_from": 8.2063,
+    "lat_from": 46.7989,
+    "lon_to": 10.3644,
+    "lat_to": 51.0506
+  },
+  {
+    "decade": 1960,
+    "country_from": "Швеция",
+    "country_to": "Австрия",
+    "count": 1,
+    "lon_from": 16.267,
+    "lat_from": 62.3837,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1960,
+    "country_from": "ЮАР",
+    "country_to": "Австрия",
+    "count": 1,
+    "lon_from": 25.1934,
+    "lat_from": -28.9742,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1970,
+    "country_from": "Австралия",
+    "country_to": "Австрия",
+    "count": 1,
+    "lon_from": 134.3038,
+    "lat_from": -25.7642,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1970,
+    "country_from": "Австрия",
+    "country_to": "Австрия",
+    "count": 26,
+    "lon_from": 14.1104,
+    "lat_from": 47.5923,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1970,
+    "country_from": "Австрия",
+    "country_to": "Германия",
+    "count": 1,
+    "lon_from": 14.1104,
+    "lat_from": 47.5923,
+    "lon_to": 10.3644,
+    "lat_to": 51.0506
+  },
+  {
+    "decade": 1970,
+    "country_from": "Болгария",
+    "country_to": "Австрия",
+    "count": 1,
+    "lon_from": 25.2091,
+    "lat_from": 42.7712,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1970,
+    "country_from": "Великобритания",
+    "country_to": "Австрия",
+    "count": 3,
+    "lon_from": -2.7581,
+    "lat_from": 54.0116,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1970,
+    "country_from": "Вьетнам",
+    "country_to": "Австрия",
+    "count": 1,
+    "lon_from": 106.3465,
+    "lat_from": 16.5443,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1970,
+    "country_from": "Гана",
+    "country_to": "Австрия",
+    "count": 2,
+    "lon_from": -1.217,
+    "lat_from": 7.9477,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1970,
+    "country_from": "Германия",
+    "country_to": "Австрия",
+    "count": 12,
+    "lon_from": 10.3644,
+    "lat_from": 51.0506,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1970,
+    "country_from": "Германия",
+    "country_to": "Россия",
+    "count": 3,
+    "lon_from": 10.3644,
+    "lat_from": 51.0506,
+    "lon_to": 95.6414,
+    "lat_to": 66.0317
+  },
+  {
+    "decade": 1970,
+    "country_from": "Греция",
+    "country_to": "Австрия",
+    "count": 4,
+    "lon_from": 22.9643,
+    "lat_from": 39.048,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1970,
+    "country_from": "Исландия",
+    "country_to": "Австрия",
+    "count": 1,
+    "lon_from": -18.58,
+    "lat_from": 64.9979,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1970,
+    "country_from": "Испания",
+    "country_to": "Австрия",
+    "count": 1,
+    "lon_from": -3.7035,
+    "lat_from": 40.2077,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1970,
+    "country_from": "Испания",
+    "country_to": "Испания",
+    "count": 1,
+    "lon_from": -3.7035,
+    "lat_from": 40.2077,
+    "lon_to": -3.7035,
+    "lat_to": 40.2077
+  },
+  {
+    "decade": 1970,
+    "country_from": "Италия",
+    "country_to": "Австрия",
+    "count": 34,
+    "lon_from": 12.201,
+    "lat_from": 42.7157,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1970,
+    "country_from": "Италия",
+    "country_to": "Сербия",
+    "count": 1,
+    "lon_from": 12.201,
+    "lat_from": 42.7157,
+    "lon_to": 20.8066,
+    "lat_to": 44.2113
+  },
+  {
+    "decade": 1970,
+    "country_from": "Италия",
+    "country_to": "Швейцария",
+    "count": 1,
+    "lon_from": 12.201,
+    "lat_from": 42.7157,
+    "lon_to": 8.2063,
+    "lat_to": 46.7989
+  },
+  {
+    "decade": 1970,
+    "country_from": "Канада",
+    "country_to": "Австрия",
+    "count": 1,
+    "lon_from": -96.5486,
+    "lat_from": 60.4178,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1970,
+    "country_from": "Лихтенштейн",
+    "country_to": "Австрия",
+    "count": 1,
+    "lon_from": 9.5358,
+    "lat_from": 47.1366,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1970,
+    "country_from": "Люксембург",
+    "country_to": "Австрия",
+    "count": 1,
+    "lon_from": 6.0722,
+    "lat_from": 49.7668,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1970,
+    "country_from": "Мексика",
+    "country_to": "Австрия",
+    "count": 1,
+    "lon_from": -102.171,
+    "lat_from": 23.9242,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1970,
+    "country_from": "Нидерланды",
+    "country_to": "Австрия",
+    "count": 2,
+    "lon_from": 4.9915,
+    "lat_from": 52.2269,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1970,
+    "country_from": "Польша",
+    "country_to": "Австрия",
+    "count": 1,
+    "lon_from": 19.4197,
+    "lat_from": 52.1118,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1970,
+    "country_from": "Польша",
+    "country_to": "Германия",
+    "count": 1,
+    "lon_from": 19.4197,
+    "lat_from": 52.1118,
+    "lon_to": 10.3644,
+    "lat_to": 51.0506
+  },
+  {
+    "decade": 1970,
+    "country_from": "Россия",
+    "country_to": "Россия",
+    "count": 2,
+    "lon_from": 95.6414,
+    "lat_from": 66.0317,
+    "lon_to": 95.6414,
+    "lat_to": 66.0317
+  },
+  {
+    "decade": 1970,
+    "country_from": "США",
+    "country_to": "Австрия",
+    "count": 1,
+    "lon_from": -103.6296,
+    "lat_from": 44.7437,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1970,
+    "country_from": "США",
+    "country_to": "Германия",
+    "count": 1,
+    "lon_from": -103.6296,
+    "lat_from": 44.7437,
+    "lon_to": 10.3644,
+    "lat_to": 51.0506
+  },
+  {
+    "decade": 1970,
+    "country_from": "Сербия",
+    "country_to": "Австрия",
+    "count": 8,
+    "lon_from": 20.8066,
+    "lat_from": 44.2113,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1970,
+    "country_from": "Турция",
+    "country_to": "Австрия",
+    "count": 1,
+    "lon_from": 35.1728,
+    "lat_from": 39.137,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1970,
+    "country_from": "Финляндия",
+    "country_to": "Германия",
+    "count": 1,
+    "lon_from": 26.195,
+    "lat_from": 64.2551,
+    "lon_to": 10.3644,
+    "lat_to": 51.0506
+  },
+  {
+    "decade": 1970,
+    "country_from": "Франция",
+    "country_to": "Австрия",
+    "count": 5,
+    "lon_from": 1.75,
+    "lat_from": 47.5,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1970,
+    "country_from": "Франция",
+    "country_to": "Франция",
+    "count": 1,
+    "lon_from": 1.75,
+    "lat_from": 47.5,
+    "lon_to": 1.75,
+    "lat_to": 47.5
+  },
+  {
+    "decade": 1970,
+    "country_from": "Хорватия",
+    "country_to": "Австрия",
+    "count": 2,
+    "lon_from": 16.4011,
+    "lat_from": 45.0759,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1970,
+    "country_from": "Чехия",
+    "country_to": "Австрия",
+    "count": 5,
+    "lon_from": 15.3194,
+    "lat_from": 49.738,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1970,
+    "country_from": "Швейцария",
+    "country_to": "Австрия",
+    "count": 17,
+    "lon_from": 8.2063,
+    "lat_from": 46.7989,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1970,
+    "country_from": "Швейцария",
+    "country_to": "Швейцария",
+    "count": 1,
+    "lon_from": 8.2063,
+    "lat_from": 46.7989,
+    "lon_to": 8.2063,
+    "lat_to": 46.7989
+  },
+  {
+    "decade": 1970,
+    "country_from": "Швеция",
+    "country_to": "Австрия",
+    "count": 1,
+    "lon_from": 16.267,
+    "lat_from": 62.3837,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1970,
+    "country_from": "ЮАР",
+    "country_to": "Австрия",
+    "count": 1,
+    "lon_from": 25.1934,
+    "lat_from": -28.9742,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1980,
+    "country_from": "Австрия",
+    "country_to": "Австрия",
+    "count": 20,
+    "lon_from": 14.1104,
+    "lat_from": 47.5923,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1980,
+    "country_from": "Андорра",
+    "country_to": "Австрия",
+    "count": 1,
+    "lon_from": 1.5605,
+    "lat_from": 42.5423,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1980,
+    "country_from": "Бельгия",
+    "country_to": "Россия",
+    "count": 2,
+    "lon_from": 4.6459,
+    "lat_from": 50.6389,
+    "lon_to": 95.6414,
+    "lat_to": 66.0317
+  },
+  {
+    "decade": 1980,
+    "country_from": "Бразилия",
+    "country_to": "Австрия",
+    "count": 1,
+    "lon_from": -53.2157,
+    "lat_from": -10.639,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1980,
+    "country_from": "Великобритания",
+    "country_to": "Австрия",
+    "count": 2,
+    "lon_from": -2.7581,
+    "lat_from": 54.0116,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1980,
+    "country_from": "Великобритания",
+    "country_to": "Франция",
+    "count": 1,
+    "lon_from": -2.7581,
+    "lat_from": 54.0116,
+    "lon_to": 1.75,
+    "lat_to": 47.5
+  },
+  {
+    "decade": 1980,
+    "country_from": "Венгрия",
+    "country_to": "Австрия",
+    "count": 1,
+    "lon_from": 19.3793,
+    "lat_from": 47.1659,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1980,
+    "country_from": "Германия",
+    "country_to": "Австрия",
+    "count": 18,
+    "lon_from": 10.3644,
+    "lat_from": 51.0506,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1980,
+    "country_from": "Германия",
+    "country_to": "Германия",
+    "count": 5,
+    "lon_from": 10.3644,
+    "lat_from": 51.0506,
+    "lon_to": 10.3644,
+    "lat_to": 51.0506
+  },
+  {
+    "decade": 1980,
+    "country_from": "Германия",
+    "country_to": "Россия",
+    "count": 4,
+    "lon_from": 10.3644,
+    "lat_from": 51.0506,
+    "lon_to": 95.6414,
+    "lat_to": 66.0317
+  },
+  {
+    "decade": 1980,
+    "country_from": "Германия",
+    "country_to": "США",
+    "count": 1,
+    "lon_from": 10.3644,
+    "lat_from": 51.0506,
+    "lon_to": -103.6296,
+    "lat_to": 44.7437
+  },
+  {
+    "decade": 1980,
+    "country_from": "Греция",
+    "country_to": "Австрия",
+    "count": 8,
+    "lon_from": 22.9643,
+    "lat_from": 39.048,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1980,
+    "country_from": "Греция",
+    "country_to": "Швейцария",
+    "count": 1,
+    "lon_from": 22.9643,
+    "lat_from": 39.048,
+    "lon_to": 8.2063,
+    "lat_to": 46.7989
+  },
+  {
+    "decade": 1980,
+    "country_from": "Дания",
+    "country_to": "Австрия",
+    "count": 1,
+    "lon_from": 10.0422,
+    "lat_from": 55.975,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1980,
+    "country_from": "Египет",
+    "country_to": "Австрия",
+    "count": 3,
+    "lon_from": 29.8783,
+    "lat_from": 26.4598,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1980,
+    "country_from": "Индия",
+    "country_to": "Австрия",
+    "count": 1,
+    "lon_from": 79.5639,
+    "lat_from": 22.7766,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1980,
+    "country_from": "Индонезия",
+    "country_to": "Австрия",
+    "count": 1,
+    "lon_from": 117.1797,
+    "lat_from": -2.2641,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1980,
+    "country_from": "Испания",
+    "country_to": "Австрия",
+    "count": 5,
+    "lon_from": -3.7035,
+    "lat_from": 40.2077,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1980,
+    "country_from": "Италия",
+    "country_to": "Австрия",
+    "count": 25,
+    "lon_from": 12.201,
+    "lat_from": 42.7157,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1980,
+    "country_from": "Италия",
+    "country_to": "Германия",
+    "count": 1,
+    "lon_from": 12.201,
+    "lat_from": 42.7157,
+    "lon_to": 10.3644,
+    "lat_to": 51.0506
+  },
+  {
+    "decade": 1980,
+    "country_from": "Канада",
+    "country_to": "Австрия",
+    "count": 1,
+    "lon_from": -96.5486,
+    "lat_from": 60.4178,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1980,
+    "country_from": "Кения",
+    "country_to": "Австрия",
+    "count": 1,
+    "lon_from": 37.7962,
+    "lat_from": 0.5994,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1980,
+    "country_from": "Монако",
+    "country_to": "Австрия",
+    "count": 1,
+    "lon_from": 7.4063,
+    "lat_from": 43.7527,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1980,
+    "country_from": "Норвегия",
+    "country_to": "Австрия",
+    "count": 2,
+    "lon_from": 12.7459,
+    "lat_from": 66.3603,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1980,
+    "country_from": "Португалия",
+    "country_to": "Австрия",
+    "count": 3,
+    "lon_from": -8.5281,
+    "lat_from": 39.6062,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1980,
+    "country_from": "Россия",
+    "country_to": "Россия",
+    "count": 2,
+    "lon_from": 95.6414,
+    "lat_from": 66.0317,
+    "lon_to": 95.6414,
+    "lat_to": 66.0317
+  },
+  {
+    "decade": 1980,
+    "country_from": "США",
+    "country_to": "Австрия",
+    "count": 4,
+    "lon_from": -103.6296,
+    "lat_from": 44.7437,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1980,
+    "country_from": "Сербия",
+    "country_to": "Австрия",
+    "count": 12,
+    "lon_from": 20.8066,
+    "lat_from": 44.2113,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1980,
+    "country_from": "Сербия",
+    "country_to": "Франция",
+    "count": 1,
+    "lon_from": 20.8066,
+    "lat_from": 44.2113,
+    "lon_to": 1.75,
+    "lat_to": 47.5
+  },
+  {
+    "decade": 1980,
+    "country_from": "Сингапур",
+    "country_to": "Германия",
+    "count": 1,
+    "lon_from": 103.8173,
+    "lat_from": 1.3588,
+    "lon_to": 10.3644,
+    "lat_to": 51.0506
+  },
+  {
+    "decade": 1980,
+    "country_from": "Турция",
+    "country_to": "Австрия",
+    "count": 1,
+    "lon_from": 35.1728,
+    "lat_from": 39.137,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1980,
+    "country_from": "Финляндия",
+    "country_to": "Австрия",
+    "count": 1,
+    "lon_from": 26.195,
+    "lat_from": 64.2551,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1980,
+    "country_from": "Франция",
+    "country_to": "Австрия",
+    "count": 8,
+    "lon_from": 1.75,
+    "lat_from": 47.5,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1980,
+    "country_from": "Франция",
+    "country_to": "Франция",
+    "count": 1,
+    "lon_from": 1.75,
+    "lat_from": 47.5,
+    "lon_to": 1.75,
+    "lat_to": 47.5
+  },
+  {
+    "decade": 1980,
+    "country_from": "Чехия",
+    "country_to": "Австрия",
+    "count": 4,
+    "lon_from": 15.3194,
+    "lat_from": 49.738,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1980,
+    "country_from": "Швейцария",
+    "country_to": "Австрия",
+    "count": 8,
+    "lon_from": 8.2063,
+    "lat_from": 46.7989,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1980,
+    "country_from": "Швейцария",
+    "country_to": "Россия",
+    "count": 2,
+    "lon_from": 8.2063,
+    "lat_from": 46.7989,
+    "lon_to": 95.6414,
+    "lat_to": 66.0317
+  },
+  {
+    "decade": 1980,
+    "country_from": "Швейцария",
+    "country_to": "Швейцария",
+    "count": 3,
+    "lon_from": 8.2063,
+    "lat_from": 46.7989,
+    "lon_to": 8.2063,
+    "lat_to": 46.7989
+  },
+  {
+    "decade": 1980,
+    "country_from": "Швеция",
+    "country_to": "Австрия",
+    "count": 1,
+    "lon_from": 16.267,
+    "lat_from": 62.3837,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1980,
+    "country_from": "ЮАР",
+    "country_to": "Австрия",
+    "count": 1,
+    "lon_from": 25.1934,
+    "lat_from": -28.9742,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1980,
+    "country_from": "Япония",
+    "country_to": "Австрия",
+    "count": 1,
+    "lon_from": 137.66,
+    "lat_from": 37.4609,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1990,
+    "country_from": "Австралия",
+    "country_to": "Австрия",
+    "count": 1,
+    "lon_from": 134.3038,
+    "lat_from": -25.7642,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1990,
+    "country_from": "Австрия",
+    "country_to": "Австрия",
+    "count": 7,
+    "lon_from": 14.1104,
+    "lat_from": 47.5923,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1990,
+    "country_from": "Австрия",
+    "country_to": "Германия",
+    "count": 1,
+    "lon_from": 14.1104,
+    "lat_from": 47.5923,
+    "lon_to": 10.3644,
+    "lat_to": 51.0506
+  },
+  {
+    "decade": 1990,
+    "country_from": "Австрия",
+    "country_to": "Чехия",
+    "count": 1,
+    "lon_from": 14.1104,
+    "lat_from": 47.5923,
+    "lon_to": 15.3194,
+    "lat_to": 49.738
+  },
+  {
+    "decade": 1990,
+    "country_from": "Германия",
+    "country_to": "Австрия",
+    "count": 12,
+    "lon_from": 10.3644,
+    "lat_from": 51.0506,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1990,
+    "country_from": "Германия",
+    "country_to": "Германия",
+    "count": 2,
+    "lon_from": 10.3644,
+    "lat_from": 51.0506,
+    "lon_to": 10.3644,
+    "lat_to": 51.0506
+  },
+  {
+    "decade": 1990,
+    "country_from": "Германия",
+    "country_to": "Россия",
+    "count": 1,
+    "lon_from": 10.3644,
+    "lat_from": 51.0506,
+    "lon_to": 95.6414,
+    "lat_to": 66.0317
+  },
+  {
+    "decade": 1990,
+    "country_from": "Греция",
+    "country_to": "Австрия",
+    "count": 6,
+    "lon_from": 22.9643,
+    "lat_from": 39.048,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1990,
+    "country_from": "Испания",
+    "country_to": "Австрия",
+    "count": 2,
+    "lon_from": -3.7035,
+    "lat_from": 40.2077,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1990,
+    "country_from": "Испания",
+    "country_to": "Швейцария",
+    "count": 1,
+    "lon_from": -3.7035,
+    "lat_from": 40.2077,
+    "lon_to": 8.2063,
+    "lat_to": 46.7989
+  },
+  {
+    "decade": 1990,
+    "country_from": "Италия",
+    "country_to": "Австрия",
+    "count": 15,
+    "lon_from": 12.201,
+    "lat_from": 42.7157,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1990,
+    "country_from": "Португалия",
+    "country_to": "Австрия",
+    "count": 2,
+    "lon_from": -8.5281,
+    "lat_from": 39.6062,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1990,
+    "country_from": "Россия",
+    "country_to": "Австрия",
+    "count": 2,
+    "lon_from": 95.6414,
+    "lat_from": 66.0317,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1990,
+    "country_from": "США",
+    "country_to": "Австрия",
+    "count": 1,
+    "lon_from": -103.6296,
+    "lat_from": 44.7437,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1990,
+    "country_from": "Сербия",
+    "country_to": "Австрия",
+    "count": 2,
+    "lon_from": 20.8066,
+    "lat_from": 44.2113,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1990,
+    "country_from": "Словения",
+    "country_to": "Австрия",
+    "count": 4,
+    "lon_from": 14.8005,
+    "lat_from": 46.1159,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1990,
+    "country_from": "Турция",
+    "country_to": "Австрия",
+    "count": 2,
+    "lon_from": 35.1728,
+    "lat_from": 39.137,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1990,
+    "country_from": "Франция",
+    "country_to": "Австрия",
+    "count": 1,
+    "lon_from": 1.75,
+    "lat_from": 47.5,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1990,
+    "country_from": "Франция",
+    "country_to": "Германия",
+    "count": 1,
+    "lon_from": 1.75,
+    "lat_from": 47.5,
+    "lon_to": 10.3644,
+    "lat_to": 51.0506
+  },
+  {
+    "decade": 1990,
+    "country_from": "Франция",
+    "country_to": "Франция",
+    "count": 1,
+    "lon_from": 1.75,
+    "lat_from": 47.5,
+    "lon_to": 1.75,
+    "lat_to": 47.5
+  },
+  {
+    "decade": 1990,
+    "country_from": "Хорватия",
+    "country_to": "Австрия",
+    "count": 5,
+    "lon_from": 16.4011,
+    "lat_from": 45.0759,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1990,
+    "country_from": "Чехия",
+    "country_to": "Австрия",
+    "count": 4,
+    "lon_from": 15.3194,
+    "lat_from": 49.738,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1990,
+    "country_from": "Чехия",
+    "country_to": "Чехия",
+    "count": 1,
+    "lon_from": 15.3194,
+    "lat_from": 49.738,
+    "lon_to": 15.3194,
+    "lat_to": 49.738
+  },
+  {
+    "decade": 1990,
+    "country_from": "Швейцария",
+    "country_to": "Австрия",
+    "count": 2,
+    "lon_from": 8.2063,
+    "lat_from": 46.7989,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1990,
+    "country_from": "Швейцария",
+    "country_to": "Германия",
+    "count": 1,
+    "lon_from": 8.2063,
+    "lat_from": 46.7989,
+    "lon_to": 10.3644,
+    "lat_to": 51.0506
+  },
+  {
+    "decade": 1990,
+    "country_from": "Эквадор",
+    "country_to": "Австрия",
+    "count": 1,
+    "lon_from": -78.7493,
+    "lat_from": -1.4241,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 1990,
+    "country_from": "ЮАР",
+    "country_to": "Австрия",
+    "count": 1,
+    "lon_from": 25.1934,
+    "lat_from": -28.9742,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 2000,
+    "country_from": "Австрия",
+    "country_to": "Австрия",
+    "count": 4,
+    "lon_from": 14.1104,
+    "lat_from": 47.5923,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 2000,
+    "country_from": "Австрия",
+    "country_to": "Италия",
+    "count": 1,
+    "lon_from": 14.1104,
+    "lat_from": 47.5923,
+    "lon_to": 12.201,
+    "lat_to": 42.7157
+  },
+  {
+    "decade": 2000,
+    "country_from": "Германия",
+    "country_to": "Австрия",
+    "count": 3,
+    "lon_from": 10.3644,
+    "lat_from": 51.0506,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 2000,
+    "country_from": "Германия",
+    "country_to": "Германия",
+    "count": 1,
+    "lon_from": 10.3644,
+    "lat_from": 51.0506,
+    "lon_to": 10.3644,
+    "lat_to": 51.0506
+  },
+  {
+    "decade": 2000,
+    "country_from": "Греция",
+    "country_to": "Австрия",
+    "count": 1,
+    "lon_from": 22.9643,
+    "lat_from": 39.048,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 2000,
+    "country_from": "Зимбабве",
+    "country_to": "Австрия",
+    "count": 1,
+    "lon_from": 29.851,
+    "lat_from": -18.997,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 2000,
+    "country_from": "Италия",
+    "country_to": "Австрия",
+    "count": 4,
+    "lon_from": 12.201,
+    "lat_from": 42.7157,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 2000,
+    "country_from": "Кения",
+    "country_to": "Австрия",
+    "count": 1,
+    "lon_from": 37.7962,
+    "lat_from": 0.5994,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 2000,
+    "country_from": "Коста-Рика",
+    "country_to": "Австрия",
+    "count": 1,
+    "lon_from": -84.1899,
+    "lat_from": 9.9761,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 2000,
+    "country_from": "Новая Зеландия",
+    "country_to": "Австрия",
+    "count": 1,
+    "lon_from": 172.9213,
+    "lat_from": -41.7023,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 2000,
+    "country_from": "Португалия",
+    "country_to": "Австрия",
+    "count": 2,
+    "lon_from": -8.5281,
+    "lat_from": 39.6062,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 2000,
+    "country_from": "США",
+    "country_to": "Австрия",
+    "count": 3,
+    "lon_from": -103.6296,
+    "lat_from": 44.7437,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 2000,
+    "country_from": "Турция",
+    "country_to": "Германия",
+    "count": 1,
+    "lon_from": 35.1728,
+    "lat_from": 39.137,
+    "lon_to": 10.3644,
+    "lat_to": 51.0506
+  },
+  {
+    "decade": 2000,
+    "country_from": "Швейцария",
+    "country_to": "Австрия",
+    "count": 1,
+    "lon_from": 8.2063,
+    "lat_from": 46.7989,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 2010,
+    "country_from": "Австрия",
+    "country_to": "Австрия",
+    "count": 4,
+    "lon_from": 14.1104,
+    "lat_from": 47.5923,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 2010,
+    "country_from": "Австрия",
+    "country_to": "Россия",
+    "count": 1,
+    "lon_from": 14.1104,
+    "lat_from": 47.5923,
+    "lon_to": 95.6414,
+    "lat_to": 66.0317
+  },
+  {
+    "decade": 2010,
+    "country_from": "Бельгия",
+    "country_to": "Россия",
+    "count": 1,
+    "lon_from": 4.6459,
+    "lat_from": 50.6389,
+    "lon_to": 95.6414,
+    "lat_to": 66.0317
+  },
+  {
+    "decade": 2010,
+    "country_from": "Венгрия",
+    "country_to": "Австрия",
+    "count": 1,
+    "lon_from": 19.3793,
+    "lat_from": 47.1659,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 2010,
+    "country_from": "Германия",
+    "country_to": "Россия",
+    "count": 9,
+    "lon_from": 10.3644,
+    "lat_from": 51.0506,
+    "lon_to": 95.6414,
+    "lat_to": 66.0317
+  },
+  {
+    "decade": 2010,
+    "country_from": "Испания",
+    "country_to": "Австрия",
+    "count": 1,
+    "lon_from": -3.7035,
+    "lat_from": 40.2077,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 2010,
+    "country_from": "Италия",
+    "country_to": "Австрия",
+    "count": 2,
+    "lon_from": 12.201,
+    "lat_from": 42.7157,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 2010,
+    "country_from": "Турция",
+    "country_to": "Австрия",
+    "count": 1,
+    "lon_from": 35.1728,
+    "lat_from": 39.137,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 2010,
+    "country_from": "Франция",
+    "country_to": "Австрия",
+    "count": 1,
+    "lon_from": 1.75,
+    "lat_from": 47.5,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 2010,
+    "country_from": "Хорватия",
+    "country_to": "Австрия",
+    "count": 2,
+    "lon_from": 16.4011,
+    "lat_from": 45.0759,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 2010,
+    "country_from": "Швейцария",
+    "country_to": "Россия",
+    "count": 1,
+    "lon_from": 8.2063,
+    "lat_from": 46.7989,
+    "lon_to": 95.6414,
+    "lat_to": 66.0317
+  },
+  {
+    "decade": 2020,
+    "country_from": "Германия",
+    "country_to": "Россия",
+    "count": 6,
+    "lon_from": 10.3644,
+    "lat_from": 51.0506,
+    "lon_to": 95.6414,
+    "lat_to": 66.0317
+  },
+  {
+    "decade": 2020,
+    "country_from": "Италия",
+    "country_to": "Австрия",
+    "count": 1,
+    "lon_from": 12.201,
+    "lat_from": 42.7157,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 2020,
+    "country_from": "Россия",
+    "country_to": "Германия",
+    "count": 1,
+    "lon_from": 95.6414,
+    "lat_from": 66.0317,
+    "lon_to": 10.3644,
+    "lat_to": 51.0506
+  },
+  {
+    "decade": 2020,
+    "country_from": "Тунис",
+    "country_to": "Австрия",
+    "count": 1,
+    "lon_from": 9.5561,
+    "lat_from": 34.089,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 2050,
+    "country_from": "Швейцария",
+    "country_to": "Россия",
+    "count": 1,
+    "lon_from": 8.2063,
+    "lat_from": 46.7989,
+    "lon_to": 95.6414,
+    "lat_to": 66.0317
+  },
+  {
+    "decade": 2150,
+    "country_from": "Россия",
+    "country_to": "Швейцария",
+    "count": 1,
+    "lon_from": 95.6414,
+    "lat_from": 66.0317,
+    "lon_to": 8.2063,
+    "lat_to": 46.7989
+  },
+  {
+    "decade": 2170,
+    "country_from": "Россия",
+    "country_to": "Германия",
+    "count": 1,
+    "lon_from": 95.6414,
+    "lat_from": 66.0317,
+    "lon_to": 10.3644,
+    "lat_to": 51.0506
+  },
+  {
+    "decade": 2420,
+    "country_from": "Швейцария",
+    "country_to": "Россия",
+    "count": 1,
+    "lon_from": 8.2063,
+    "lat_from": 46.7989,
+    "lon_to": 95.6414,
+    "lat_to": 66.0317
+  },
+  {
+    "decade": 2440,
+    "country_from": "Россия",
+    "country_to": "Швейцария",
+    "count": 1,
+    "lon_from": 95.6414,
+    "lat_from": 66.0317,
+    "lon_to": 8.2063,
+    "lat_to": 46.7989
+  },
+  {
+    "decade": 2470,
+    "country_from": "Россия",
+    "country_to": "Австрия",
+    "count": 1,
+    "lon_from": 95.6414,
+    "lat_from": 66.0317,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 2490,
+    "country_from": "Германия",
+    "country_to": "Россия",
+    "count": 1,
+    "lon_from": 10.3644,
+    "lat_from": 51.0506,
+    "lon_to": 95.6414,
+    "lat_to": 66.0317
+  },
+  {
+    "decade": 2730,
+    "country_from": "Германия",
+    "country_to": "Россия",
+    "count": 1,
+    "lon_from": 10.3644,
+    "lat_from": 51.0506,
+    "lon_to": 95.6414,
+    "lat_to": 66.0317
+  },
+  {
+    "decade": 3060,
+    "country_from": "Германия",
+    "country_to": "Россия",
+    "count": 1,
+    "lon_from": 10.3644,
+    "lat_from": 51.0506,
+    "lon_to": 95.6414,
+    "lat_to": 66.0317
+  },
+  {
+    "decade": 3100,
+    "country_from": "Россия",
+    "country_to": "Германия",
+    "count": 1,
+    "lon_from": 95.6414,
+    "lat_from": 66.0317,
+    "lon_to": 10.3644,
+    "lat_to": 51.0506
+  },
+  {
+    "decade": 3190,
+    "country_from": "Австрия",
+    "country_to": "Россия",
+    "count": 1,
+    "lon_from": 14.1104,
+    "lat_from": 47.5923,
+    "lon_to": 95.6414,
+    "lat_to": 66.0317
+  },
+  {
+    "decade": 3520,
+    "country_from": "Германия",
+    "country_to": "Россия",
+    "count": 1,
+    "lon_from": 10.3644,
+    "lat_from": 51.0506,
+    "lon_to": 95.6414,
+    "lat_to": 66.0317
+  },
+  {
+    "decade": 3820,
+    "country_from": "Германия",
+    "country_to": "Россия",
+    "count": 2,
+    "lon_from": 10.3644,
+    "lat_from": 51.0506,
+    "lon_to": 95.6414,
+    "lat_to": 66.0317
+  },
+  {
+    "decade": 4120,
+    "country_from": "Германия",
+    "country_to": "Россия",
+    "count": 1,
+    "lon_from": 10.3644,
+    "lat_from": 51.0506,
+    "lon_to": 95.6414,
+    "lat_to": 66.0317
+  },
+  {
+    "decade": 4620,
+    "country_from": "Россия",
+    "country_to": "Австрия",
+    "count": 1,
+    "lon_from": 95.6414,
+    "lat_from": 66.0317,
+    "lon_to": 14.1104,
+    "lat_to": 47.5923
+  },
+  {
+    "decade": 4780,
+    "country_from": "Россия",
+    "country_to": "Бельгия",
+    "count": 1,
+    "lon_from": 95.6414,
+    "lat_from": 66.0317,
+    "lon_to": 4.6459,
+    "lat_to": 50.6389
+  },
+  {
+    "decade": 4940,
+    "country_from": "Швейцария",
+    "country_to": "Россия",
+    "count": 1,
+    "lon_from": 8.2063,
+    "lat_from": 46.7989,
+    "lon_to": 95.6414,
+    "lat_to": 66.0317
+  },
+  {
+    "decade": 8840,
+    "country_from": "Германия",
+    "country_to": "Россия",
+    "count": 3,
+    "lon_from": 10.3644,
+    "lat_from": 51.0506,
+    "lon_to": 95.6414,
+    "lat_to": 66.0317
+  },
+  {
+    "decade": 9280,
+    "country_from": "Германия",
+    "country_to": "Латвия",
+    "count": 1,
+    "lon_from": 10.3644,
+    "lat_from": 51.0506,
+    "lon_to": 24.9204,
+    "lat_to": 56.8595
+  },
+  {
+    "decade": 9320,
+    "country_from": "Германия",
+    "country_to": "Россия",
+    "count": 1,
+    "lon_from": 10.3644,
+    "lat_from": 51.0506,
+    "lon_to": 95.6414,
+    "lat_to": 66.0317
+  },
+  {
+    "decade": 10250,
+    "country_from": "Германия",
+    "country_to": "Россия",
+    "count": 1,
+    "lon_from": 10.3644,
+    "lat_from": 51.0506,
+    "lon_to": 95.6414,
+    "lat_to": 66.0317
+  },
+  {
+    "decade": 10570,
+    "country_from": "Бельгия",
+    "country_to": "Россия",
+    "count": 1,
+    "lon_from": 4.6459,
+    "lat_from": 50.6389,
+    "lon_to": 95.6414,
+    "lat_to": 66.0317
+  },
+  {
+    "decade": 10710,
+    "country_from": "Бельгия",
+    "country_to": "Бельгия",
+    "count": 1,
+    "lon_from": 4.6459,
+    "lat_from": 50.6389,
+    "lon_to": 4.6459,
+    "lat_to": 50.6389
+  },
+  {
+    "decade": 10910,
+    "country_from": "Россия",
+    "country_to": "Швейцария",
+    "count": 1,
+    "lon_from": 95.6414,
+    "lat_from": 66.0317,
+    "lon_to": 8.2063,
+    "lat_to": 46.7989
+  },
+  {
+    "decade": 11230,
+    "country_from": "Германия",
+    "country_to": "Россия",
+    "count": 1,
+    "lon_from": 10.3644,
+    "lat_from": 51.0506,
+    "lon_to": 95.6414,
+    "lat_to": 66.0317
+  },
+  {
+    "decade": 15140,
+    "country_from": "Германия",
+    "country_to": "Россия",
+    "count": 1,
+    "lon_from": 10.3644,
+    "lat_from": 51.0506,
+    "lon_to": 95.6414,
+    "lat_to": 66.0317
+  },
+  {
+    "decade": 21360,
+    "country_from": "Бельгия",
+    "country_to": "Россия",
+    "count": 1,
+    "lon_from": 4.6459,
+    "lat_from": 50.6389,
+    "lon_to": 95.6414,
+    "lat_to": 66.0317
+  },
+  {
+    "decade": 41780,
+    "country_from": "Германия",
+    "country_to": "Россия",
+    "count": 1,
+    "lon_from": 10.3644,
+    "lat_from": 51.0506,
+    "lon_to": 95.6414,
+    "lat_to": 66.0317
+  },
+  {
+    "decade": 41830,
+    "country_from": "Германия",
+    "country_to": "Россия",
+    "count": 1,
+    "lon_from": 10.3644,
+    "lat_from": 51.0506,
+    "lon_to": 95.6414,
+    "lat_to": 66.0317
+  },
+  {
+    "decade": 43600,
+    "country_from": "Германия",
+    "country_to": "Россия",
+    "count": 1,
+    "lon_from": 10.3644,
+    "lat_from": 51.0506,
+    "lon_to": 95.6414,
+    "lat_to": 66.0317
+  },
+  {
+    "decade": 45310,
+    "country_from": "Германия",
+    "country_to": "Россия",
+    "count": 2,
+    "lon_from": 10.3644,
+    "lat_from": 51.0506,
+    "lon_to": 95.6414,
+    "lat_to": 66.0317
+  },
+  {
+    "decade": 45720,
+    "country_from": "Швейцария",
+    "country_to": "Россия",
+    "count": 1,
+    "lon_from": 8.2063,
+    "lat_from": 46.7989,
+    "lon_to": 95.6414,
+    "lat_to": 66.0317
+  },
+  {
+    "decade": 45760,
+    "country_from": "Германия",
+    "country_to": "Россия",
+    "count": 1,
+    "lon_from": 10.3644,
+    "lat_from": 51.0506,
+    "lon_to": 95.6414,
+    "lat_to": 66.0317
+  },
+  {
+    "decade": 45810,
+    "country_from": "Германия",
+    "country_to": "Россия",
+    "count": 1,
+    "lon_from": 10.3644,
+    "lat_from": 51.0506,
+    "lon_to": 95.6414,
+    "lat_to": 66.0317
+  }
+];
+        
+        const map = L.map("map").setView([50, 15], 4);
+        L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png").addTo(map);
+        
+        // Заполняем списки стран
+        const fromSelect = document.getElementById("countryFrom");
+        const toSelect = document.getElementById("countryTo");
+        
+        const allFrom = [...new Set(routesData.map(r => r.country_from))].sort();
+        const allTo = [...new Set(routesData.map(r => r.country_to))].sort();
+        
+        allFrom.forEach(c => { const opt = document.createElement("option"); opt.value = c; opt.text = c; fromSelect.appendChild(opt); });
+        allTo.forEach(c => { const opt = document.createElement("option"); opt.value = c; opt.text = c; toSelect.appendChild(opt); });
+        
+        let lines = [], markers = [], showMarkers = true;
+        
+        function getColor(count) {
+            if (count == 1) return "#FFD700";
+            if (count == 2) return "#FFA500";
+            if (count == 3) return "#FF6347";
+            return "#FF0000";
+        }
+        
+        function updateMap() {
+            // Удаляем старые слои
+            lines.forEach(l => map.removeLayer(l));
+            markers.forEach(m => map.removeLayer(m));
+            lines = [];
+            markers = [];
+            
+            // Получаем фильтры
+            const minYear = parseInt(document.getElementById("minYear").value);
+            const maxYear = parseInt(document.getElementById("maxYear").value);
+            const countryFrom = document.getElementById("countryFrom").value;
+            const countryTo = document.getElementById("countryTo").value;
+            
+            // Фильтруем
+            let filtered = routesData.filter(r => r.decade >= minYear && r.decade <= maxYear);
+            if (countryFrom !== "all") filtered = filtered.filter(r => r.country_from === countryFrom);
+            if (countryTo !== "all") filtered = filtered.filter(r => r.country_to === countryTo);
+            
+            // Счётчик
+            const total = filtered.reduce((s, r) => s + r.count, 0);
+            document.getElementById("postcardCount").innerText = total;
+            
+            // Рисуем линии
+            filtered.forEach(route => {
+                const line = L.polyline(
+                    [[route.lat_from, route.lon_from], [route.lat_to, route.lon_to]],
+                    { color: getColor(route.count), weight: Math.min(route.count * 2, 12), opacity: 0.7 }
+                ).bindPopup(`${route.country_from} → ${route.country_to}<br>📬 ${route.count} открыток<br>📅 ${route.decade}-е годы`);
+                line.addTo(map);
+                lines.push(line);
+            });
+            
+            // Рисуем маркеры (если включены)
+            if (showMarkers && filtered.length > 0) {
+                const stats = {};
+                filtered.forEach(r => { stats[r.country_from] = (stats[r.country_from] || 0) + r.count; });
+                Object.keys(stats).forEach(c => {
+                    const r = filtered.find(r => r.country_from === c);
+                    if (r) {
+                        const marker = L.circleMarker([r.lat_from, r.lon_from], {
+                            radius: Math.sqrt(stats[c]) * 2,
+                            color: "#4A90E2",
+                            fillOpacity: 0.6
+                        }).bindPopup(`${c}<br>📬 Отправлено: ${stats[c]}`);
+                        marker.addTo(map);
+                        markers.push(marker);
+                    }
+                });
+            }
+        }
+        
+        // События
+        document.getElementById("minYear").addEventListener("input", updateMap);
+        document.getElementById("maxYear").addEventListener("input", updateMap);
+        document.getElementById("countryFrom").addEventListener("change", updateMap);
+        document.getElementById("countryTo").addEventListener("change", updateMap);
+        
+        document.getElementById("toggleMarkers").addEventListener("click", () => {
+            showMarkers = !showMarkers;
+            document.getElementById("toggleMarkers").innerText = showMarkers ? "Скрыть маркеры" : "Показать маркеры";
+            updateMap();
+        });
+        
+        document.getElementById("resetBtn").addEventListener("click", () => {
+            document.getElementById("countryFrom").value = "all";
+            document.getElementById("countryTo").value = "all";
+            document.getElementById("minYear").value = "1890";
+            document.getElementById("maxYear").value = "2020";
+            updateMap();
+        });
+        
+        // Запуск
+        updateMap();
+    </script>
+</body>
+</html>
